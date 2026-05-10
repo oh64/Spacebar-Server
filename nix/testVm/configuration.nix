@@ -124,4 +124,6 @@ in
     net-tools
     nethogs
   ];
+
+  system.stateVersion = "26.05";
 }
