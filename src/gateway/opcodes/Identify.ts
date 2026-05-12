@@ -36,6 +36,7 @@ import {
     Member,
     MemberPrivateProjection,
     OPCodes,
+    Permissions,
     PresenceUpdateEvent,
     ReadState,
     ReadyEventData,
@@ -503,21 +504,30 @@ export async function onIdentify(this: WebSocket, data: Payload) {
     // Generate guilds list ( make them unavailable if user is bot )
     const guilds: GuildOrUnavailable[] = members.map((member) => {
         member.guild.channels = (channelsByGuild.get(member.guild_id) ?? [])
-            /*
-   			//TODO maybe implement this correctly, by causing create and delete events for users who can newly view and not view the channels, along with doing these checks correctly, as they don't currently take into account that the owner of the guild is always able to view channels, with potentially other issues
-   			.filter((channel) => {
-				const perms = Permissions.finalPermission({
-					user: {
-						id: member.id,
-						roles: member.roles.map((x) => x.id),
-					},
-					guild: member.guild,
-					channel,
-				});
+            // Discord handles this entirely on the client side, but to make things easier for client developers
+            // and to avoid compromising privacy, we filter server-side
+            .filter((channel) => {
+                const perms = Permissions.finalPermission({
+                    user: {
+                        id: member.id,
+                        roles: member.roles.map((x) => x.id),
+                        communication_disabled_until: member.communication_disabled_until,
+                        flags: member.flags,
+                    },
+                    guild: {
+                        id: member.guild.id,
+                        owner_id: member.guild.owner_id as string,
+                        roles: member.guild.roles,
+                    },
+                    channel: {
+                        overwrites: channel.permission_overwrites,
+                        recipient_ids: null,
+                        owner_id: channel.owner_id,
+                    },
+                });
 
-				return perms.has("VIEW_CHANNEL");
-			})
-   			*/
+                return perms.has("VIEW_CHANNEL");
+            })
             .map((channel) => {
                 channel.position = member.guild.channel_ordering.indexOf(channel.id);
                 return channel;
@@ -549,15 +559,6 @@ export async function onIdentify(this: WebSocket, data: Payload) {
         return guildjson;
     });
     const generateGuildsListTime = taskSw.getElapsedAndReset();
-
-    // Generate user_guild_settings
-    const user_guild_settings_entries: ReadyUserGuildSettingsEntries[] = members.map((x) => ({
-        ...DefaultUserGuildSettings,
-        ...x.settings,
-        guild_id: x.guild_id,
-        channel_overrides: x.settings.channel_overrides ? Object.entries(x.settings.channel_overrides).map(([k, v]) => ({ ...v, channel_id: k })) : [],
-    }));
-    const generateUserGuildSettingsTime = taskSw.getElapsedAndReset();
 
     // Populated with users from private channels, relationships.
     // Uses a set to dedupe for us.
@@ -602,6 +603,29 @@ export async function onIdentify(this: WebSocket, data: Payload) {
     // From user relationships ( friends ), also append to `users` list
     user.relationships.forEach((x) => users.add(x.to.toPublicUser()));
     const appendRelationshipsTime = taskSw.getElapsedAndReset();
+
+    const visibleChannelIds = new Set<string>();
+
+    guilds.forEach((guild: GuildOrUnavailable) => {
+        if ("channels" in guild && Array.isArray(guild.channels)) {
+            guild.channels.forEach((c: Channel) => visibleChannelIds.add(c.id));
+        }
+    });
+
+    channels.forEach((c: { id: string }) => visibleChannelIds.add(c.id));
+
+    const filteredReadStates = read_states.filter((rs) => visibleChannelIds.has(rs.channel_id));
+
+    const filterReadStatesTime = taskSw.getElapsedAndReset();
+
+    // Generate user_guild_settings
+    const user_guild_settings_entries: ReadyUserGuildSettingsEntries[] = members.map((x) => ({
+        ...DefaultUserGuildSettings,
+        ...x.settings,
+        guild_id: x.guild_id,
+        channel_overrides: x.settings.channel_overrides ? Object.entries(x.settings.channel_overrides).map(([k, v]) => ({ ...v, channel_id: k })) : [],
+    }));
+    const generateUserGuildSettingsTime = taskSw.getElapsedAndReset();
 
     // Send SESSIONS_REPLACE and PRESENCE_UPDATE
     const allSessions = sessions.concat(this.session!).map((x) => x.toPrivateGatewayDeviceInfo());
@@ -662,6 +686,10 @@ export async function onIdentify(this: WebSocket, data: Payload) {
     const { result: remappedRelationships, elapsed: remapRelationshipsTime } = timeFunction(() => user.relationships.map((x) => x.toPublicRelationship()));
     buildReadyTrace.calls!.push("remapRelationships", { micros: remapRelationshipsTime.totalMicroseconds });
 
+    buildReadyTrace.calls!.push("filterReadStates", {
+        micros: filterReadStatesTime?.totalMicroseconds || 0,
+    });
+
     buildReadyTrace.micros = buildReadyTrace.calls!.reduce((a, b) => {
         if (typeof b === "string") return a;
         return a + (b as { micros: number }).micros;
@@ -680,7 +708,7 @@ export async function onIdentify(this: WebSocket, data: Payload) {
                 guilds: remappedGuilds,
                 relationships: remappedRelationships,
                 read_state: {
-                    entries: read_states,
+                    entries: filteredReadStates,
                     partial: false,
                     version: 0, // TODO
                 },
