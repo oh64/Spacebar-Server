@@ -1,6 +1,6 @@
 /*
 	Spacebar: A FOSS re-implementation and extension of the Discord.com backend.
-	Copyright (C) 2023 Spacebar and Spacebar Contributors
+	Copyright (C) 2026 Spacebar and Spacebar Contributors
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as published
@@ -18,9 +18,9 @@
 
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/util/handlers/route";
-import { Emoji, Member } from "@spacebar/database";
-import { Config, DiscordApiErrors, GuildEmojisUpdateEvent, Snowflake, emitEvent, handleFile } from "@spacebar/util";
-import { EmojiCreateSchema, EmojiModifySchema } from "@spacebar/schemas";
+import { Emoji, Application } from "@spacebar/database";
+import { Config, DiscordApiErrors, Snowflake, handleFile } from "@spacebar/util";
+import { ApplicationEmojiModifySchema, EmojiCreateSchema } from "@spacebar/schemas";
 
 const router = Router({ mergeParams: true });
 
@@ -29,7 +29,7 @@ router.get(
     route({
         responses: {
             200: {
-                body: "EmojisResponse",
+                body: "ApplicationsEmojisResponse",
             },
             403: {
                 body: "APIErrorResponse",
@@ -37,16 +37,18 @@ router.get(
         },
     }),
     async (req: Request, res: Response) => {
-        const { guild_id } = req.params as { [key: string]: string };
+        const { application_id } = req.params as { [key: string]: string };
 
-        await Member.IsInGuildOrFail(req.user_id, guild_id);
+        const app = await Application.findOne({ where: { id: application_id } });
+        if (!app) throw DiscordApiErrors.UNKNOWN_APPLICATION;
+        if (req.user_id != app?.id && req.user_id != app?.owner_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
 
         const emojis = await Emoji.find({
-            where: { guild_id: guild_id },
+            where: { application_id: application_id },
             relations: { user: true },
         });
 
-        return res.json(emojis);
+        return res.json({ items: emojis });
     },
 );
 
@@ -66,14 +68,18 @@ router.get(
         },
     }),
     async (req: Request, res: Response) => {
-        const { guild_id, emoji_id } = req.params as { [key: string]: string };
+        const { application_id, emoji_id } = req.params as { [key: string]: string };
 
-        await Member.IsInGuildOrFail(req.user_id, guild_id);
+        const app = await Application.findOne({ where: { id: application_id } });
+        if (!app) throw DiscordApiErrors.UNKNOWN_APPLICATION;
+        if (req.user_id != app?.id && req.user_id != app?.owner_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
 
-        const emoji = await Emoji.findOneOrFail({
-            where: { guild_id: guild_id, id: emoji_id },
+        const emoji = await Emoji.findOne({
+            where: { application_id: application_id, id: emoji_id },
             relations: { user: true },
         });
+
+        if (!emoji) throw DiscordApiErrors.UNKNOWN_EMOJI;
 
         return res.json(emoji);
     },
@@ -83,7 +89,6 @@ router.post(
     "/",
     route({
         requestBody: "EmojiCreateSchema",
-        permission: "MANAGE_EMOJIS_AND_STICKERS",
         responses: {
             201: {
                 body: "Emoji",
@@ -97,14 +102,18 @@ router.post(
         },
     }),
     async (req: Request, res: Response) => {
-        const { guild_id } = req.params as { [key: string]: string };
+        const { application_id } = req.params as { [key: string]: string };
         const body = req.body as EmojiCreateSchema;
+
+        const app = await Application.findOne({ where: { id: application_id } });
+        if (!app) throw DiscordApiErrors.UNKNOWN_APPLICATION;
+        if (req.user_id != app?.id && req.user_id != app?.owner_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
 
         const id = Snowflake.generate();
         const emoji_count = await Emoji.count({
-            where: { guild_id: guild_id },
+            where: { application_id: application_id },
         });
-        const { maxEmojis } = Config.get().limits.guild;
+        const { maxEmojis } = Config.get().limits.application;
 
         if (emoji_count >= maxEmojis) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_EMOJIS_REACHED.withParams(maxEmojis);
         if (body.require_colons == null) body.require_colons = true;
@@ -116,7 +125,7 @@ router.post(
         const mimeType = body.image.split(":")[1].split(";")[0];
         const emoji = await Emoji.create({
             id: id,
-            guild_id: guild_id,
+            application_id: application_id,
             name: body.name,
             require_colons: body.require_colons ?? undefined, // schema allows nulls, db does not
             user: user,
@@ -126,15 +135,6 @@ router.post(
             roles: [],
         }).save();
 
-        await emitEvent({
-            event: "GUILD_EMOJIS_UPDATE",
-            guild_id: guild_id,
-            data: {
-                guild_id: guild_id,
-                emojis: await Emoji.find({ where: { guild_id: guild_id } }),
-            },
-        } satisfies GuildEmojisUpdateEvent);
-
         return res.status(201).json(emoji);
     },
 );
@@ -142,8 +142,7 @@ router.post(
 router.patch(
     "/:emoji_id",
     route({
-        requestBody: "EmojiModifySchema",
-        permission: "MANAGE_EMOJIS_AND_STICKERS",
+        requestBody: "ApplicationEmojiModifySchema",
         responses: {
             200: {
                 body: "Emoji",
@@ -154,29 +153,25 @@ router.patch(
         },
     }),
     async (req: Request, res: Response) => {
-        const { emoji_id, guild_id } = req.params as { [key: string]: string };
-        const body = req.body as EmojiModifySchema;
+        const { emoji_id, application_id } = req.params as { [key: string]: string };
+        const body = req.body as ApplicationEmojiModifySchema;
+
+        const app = await Application.findOne({ where: { id: application_id } });
+        if (!app) throw DiscordApiErrors.UNKNOWN_APPLICATION;
+        if (req.user_id != app?.id && req.user_id != app?.owner_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
 
         if (body.name?.includes("-")) body.name = body.name?.replaceAll("-", ""); // Dashes are invalid apparently
 
-        await Emoji.findOneOrFail({
-            where: { guild_id: guild_id, id: emoji_id },
+        const oldEmoji = await Emoji.findOne({
+            where: { id: emoji_id, application_id: application_id },
         });
+        if (!oldEmoji) throw DiscordApiErrors.UNKNOWN_EMOJI;
 
         const emoji = await Emoji.create({
             ...body,
             id: emoji_id,
-            guild_id: guild_id,
+            application_id: application_id,
         }).save();
-
-        await emitEvent({
-            event: "GUILD_EMOJIS_UPDATE",
-            guild_id: guild_id,
-            data: {
-                guild_id: guild_id,
-                emojis: await Emoji.find({ where: { guild_id: guild_id } }),
-            },
-        } satisfies GuildEmojisUpdateEvent);
 
         return res.json(emoji);
     },
@@ -185,7 +180,6 @@ router.patch(
 router.delete(
     "/:emoji_id",
     route({
-        permission: "MANAGE_EMOJIS_AND_STICKERS",
         responses: {
             204: {},
             403: {
@@ -194,21 +188,18 @@ router.delete(
         },
     }),
     async (req: Request, res: Response) => {
-        const { emoji_id, guild_id } = req.params as { [key: string]: string };
+        const { emoji_id, application_id } = req.params as { [key: string]: string };
+
+        const app = await Application.findOne({ where: { id: application_id } });
+        if (!app) throw DiscordApiErrors.UNKNOWN_APPLICATION;
+        if (req.user_id != app?.id && req.user_id != app?.owner_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
+
+        if (!(await Emoji.existsBy({ id: emoji_id, application_id }))) throw DiscordApiErrors.UNKNOWN_EMOJI;
 
         await Emoji.delete({
             id: emoji_id,
-            guild_id: guild_id,
+            application_id: application_id,
         });
-
-        await emitEvent({
-            event: "GUILD_EMOJIS_UPDATE",
-            guild_id: guild_id,
-            data: {
-                guild_id: guild_id,
-                emojis: await Emoji.find({ where: { guild_id: guild_id } }),
-            },
-        } satisfies GuildEmojisUpdateEvent);
 
         res.sendStatus(204);
     },

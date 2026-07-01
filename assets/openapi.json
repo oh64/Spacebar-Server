@@ -1013,6 +1013,14 @@
                     "image"
                 ]
             },
+            "ApplicationEmojiModifySchema": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
             "EmojiModifySchema": {
                 "type": "object",
                 "properties": {
@@ -5174,6 +5182,9 @@
             "APILimitsConfiguration": {
                 "type": "object",
                 "properties": {
+                    "application": {
+                        "$ref": "#/components/schemas/ApplicationLimits"
+                    },
                     "user": {
                         "$ref": "#/components/schemas/UserLimits"
                     },
@@ -5195,6 +5206,7 @@
                 },
                 "required": [
                     "absoluteRate",
+                    "application",
                     "channel",
                     "guild",
                     "message",
@@ -7503,6 +7515,20 @@
                 "items": {
                     "$ref": "#/components/schemas/EmojiResponse"
                 }
+            },
+            "ApplicationsEmojisResponse": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EmojiResponse"
+                        }
+                    }
+                },
+                "required": [
+                    "items"
+                ]
             },
             "EmojiResponse": {
                 "type": "object",
@@ -11111,6 +11137,9 @@
                     "owner": {
                         "$ref": "#/components/schemas/User"
                     },
+                    "owner_id": {
+                        "type": "string"
+                    },
                     "flags": {
                         "type": "integer",
                         "default": 0
@@ -11202,6 +11231,12 @@
                     "team": {
                         "$ref": "#/components/schemas/Team"
                     },
+                    "emojis": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Emoji"
+                        }
+                    },
                     "id": {
                         "type": "string"
                     }
@@ -11210,6 +11245,7 @@
                     "description",
                     "discoverability_state",
                     "discovery_eligibility_flags",
+                    "emojis",
                     "flags",
                     "hook",
                     "id",
@@ -11217,6 +11253,7 @@
                     "integration_require_code_grant",
                     "name",
                     "owner",
+                    "owner_id",
                     "redirect_uris",
                     "rpc_application_state",
                     "store_application_state",
@@ -11313,6 +11350,91 @@
                     "admin",
                     "developer",
                     "read_only"
+                ]
+            },
+            "Emoji": {
+                "type": "object",
+                "properties": {
+                    "animated": {
+                        "type": "boolean"
+                    },
+                    "available": {
+                        "type": "boolean"
+                    },
+                    "guild_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "guild": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Guild"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "application_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "application": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/Application"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "user_id": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/User"
+                    },
+                    "managed": {
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "require_colons": {
+                        "type": "boolean"
+                    },
+                    "roles": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "animated",
+                    "application",
+                    "application_id",
+                    "available",
+                    "groups",
+                    "guild",
+                    "guild_id",
+                    "id",
+                    "managed",
+                    "name",
+                    "require_colons",
+                    "roles",
+                    "user",
+                    "user_id"
                 ]
             },
             "Sticker": {
@@ -12997,67 +13119,6 @@
                     "updated_at"
                 ]
             },
-            "Emoji": {
-                "type": "object",
-                "properties": {
-                    "animated": {
-                        "type": "boolean"
-                    },
-                    "available": {
-                        "type": "boolean"
-                    },
-                    "guild_id": {
-                        "type": "string"
-                    },
-                    "guild": {
-                        "$ref": "#/components/schemas/Guild"
-                    },
-                    "user_id": {
-                        "type": "string"
-                    },
-                    "user": {
-                        "$ref": "#/components/schemas/User"
-                    },
-                    "managed": {
-                        "type": "boolean"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "require_colons": {
-                        "type": "boolean"
-                    },
-                    "roles": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "groups": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    },
-                    "id": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "animated",
-                    "available",
-                    "groups",
-                    "guild",
-                    "guild_id",
-                    "id",
-                    "managed",
-                    "name",
-                    "require_colons",
-                    "roles",
-                    "user",
-                    "user_id"
-                ]
-            },
             "GuildWelcomeScreen": {
                 "type": "object",
                 "properties": {
@@ -14262,6 +14323,17 @@
                     "is_primary",
                     "localizations",
                     "name"
+                ]
+            },
+            "ApplicationLimits": {
+                "type": "object",
+                "properties": {
+                    "maxEmojis": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "maxEmojis"
                 ]
             },
             "UserLimits": {
@@ -27919,6 +27991,285 @@
                             "type": "string"
                         },
                         "description": "application_id"
+                    }
+                ],
+                "tags": [
+                    "applications"
+                ]
+            }
+        },
+        "/applications/{application_id}/emojis/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApplicationsEmojisResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "application_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "application_id"
+                    }
+                ],
+                "tags": [
+                    "applications"
+                ]
+            },
+            "post": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EmojiCreateSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Emoji"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "application_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "application_id"
+                    }
+                ],
+                "tags": [
+                    "applications"
+                ]
+            }
+        },
+        "/applications/{application_id}/emojis/{emoji_id}": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Emoji"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "application_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "application_id"
+                    },
+                    {
+                        "name": "emoji_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "emoji_id"
+                    }
+                ],
+                "tags": [
+                    "applications"
+                ]
+            },
+            "patch": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApplicationEmojiModifySchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Emoji"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "application_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "application_id"
+                    },
+                    {
+                        "name": "emoji_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "emoji_id"
+                    }
+                ],
+                "tags": [
+                    "applications"
+                ]
+            },
+            "delete": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No description available"
+                    },
+                    "403": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/APIErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "application_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "application_id"
+                    },
+                    {
+                        "name": "emoji_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "emoji_id"
                     }
                 ],
                 "tags": [

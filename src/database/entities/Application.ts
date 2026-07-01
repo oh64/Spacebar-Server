@@ -16,11 +16,12 @@
 	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, RelationId } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne, RelationId } from "typeorm";
 import { BaseClass } from "./BaseClass";
 import { Team } from "./Team";
 import { User } from "./User";
 import { Guild } from "./Guild";
+import { Emoji } from "./Emoji";
 
 @Entity({
     name: "applications",
@@ -56,6 +57,10 @@ export class Application extends BaseClass {
     @JoinColumn({ name: "owner_id" })
     @ManyToOne(() => User, { onDelete: "CASCADE" })
     owner: User;
+
+    @Column({ type: "int8" })
+    @RelationId((application: Application) => application.owner)
+    owner_id: string;
 
     // TODO: enum this? https://discord.com/developers/docs/resources/application#application-object-application-flags
     @Column()
@@ -135,4 +140,12 @@ export class Application extends BaseClass {
         nullable: true,
     })
     team?: Team;
+
+    @JoinColumn({ name: "emoji_ids" })
+    @OneToMany(() => Emoji, (emoji: Emoji) => emoji.application, {
+        cascade: true,
+        orphanedRowAction: "delete",
+        onDelete: "CASCADE",
+    })
+    emojis: Emoji[];
 }
