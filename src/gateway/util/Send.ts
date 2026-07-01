@@ -20,7 +20,7 @@ import { Payload, WebSocket } from "@spacebar/gateway";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { JSONReplacer } from "@spacebar/util";
+import { JSONReplacer, safeStringify } from "@spacebar/util";
 import * as erlpack from "harmony-erlpack";
 
 // don't care
@@ -54,9 +54,7 @@ export async function Send(socket: WebSocket, data: Payload) {
         // Erlpack doesn't like Date objects, encodes them as {}
         data = recurseJsonReplace(data);
         buffer = Buffer.from(erlpack.pack(data));
-    }
-    // TODO: encode circular object
-    else if (socket.encoding === "json") buffer = JSON.stringify(data, JSONReplacer);
+    } else if (socket.encoding === "json") buffer = safeStringify(data, JSONReplacer);
     else return;
 
     // TODO: compression

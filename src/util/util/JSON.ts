@@ -36,3 +36,14 @@ export function JSONReplacer(this: { [key: string]: unknown }, key: string, valu
 
     return value;
 }
+
+export function safeStringify(data: unknown, replacer?: (this: { [key: string]: unknown }, key: string, value: unknown) => unknown): string {
+    const seen = new WeakSet();
+    return JSON.stringify(data, function (this: { [key: string]: unknown }, key: string, value: unknown) {
+        if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) return "[Circular]";
+            seen.add(value);
+        }
+        return replacer ? replacer.call(this, key, value) : value;
+    });
+}
