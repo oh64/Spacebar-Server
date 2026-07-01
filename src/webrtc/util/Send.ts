@@ -1,4 +1,4 @@
-import { JSONReplacer } from "@spacebar/util";
+import { safeStringify } from "@spacebar/util";
 import { VoicePayload } from "./Constants";
 import { WebRtcWebSocket } from "./WebRtcWebSocket";
 
@@ -7,8 +7,7 @@ export function Send(socket: WebRtcWebSocket, data: VoicePayload) {
 
     let buffer: Buffer | string;
 
-    // TODO: encode circular object
-    if (socket.encoding === "json") buffer = JSON.stringify(data, JSONReplacer);
+    if (socket.encoding === "json") buffer = safeStringify(data);
     else return;
 
     return new Promise((res, rej) => {
